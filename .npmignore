@@ -1,0 +1,12 @@
+node_modules
+public
+lib
+example
+index.html
+package-lock.json
+README.md
+tsconfig.build.json
+tsconfig.node.json
+tsconfig.json
+vite.config.ts
+.vscode

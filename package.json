@@ -1,0 +1,46 @@
+{
+    "name": "@byterygon/workerr",
+    "version": "1.0.0",
+    "type": "module",
+    "main": "./dist/main.js",
+    "exports": {
+        "./main": {
+            "import": {
+                "default": "./dist/main.js",
+                "types": "./dist/mainThread/index.d.ts"
+            }
+        },
+        "./worker": {
+            "import": {
+                "default": "./dist/worker.js",
+                "types": "./dist/workerThread/index.d.ts"
+            }
+        },
+        "./utils": {
+            "import": {
+                "default": "./dist/utils.js",
+                "types": "./dist/utils.d.ts"
+            }
+        }
+    },
+    "files": [
+        "dist"
+    ],
+    "scripts": {
+        "build": "tsc --p ./tsconfig.build.json && vite build",
+        "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+        "preview": "vite preview"
+    },
+    "dependencies": {
+        "events": "^3.3.0"
+    },
+    "devDependencies": {
+        "@types/node": "^20.14.2",
+        "@typescript-eslint/eslint-plugin": "^7.2.0",
+        "@typescript-eslint/parser": "^7.2.0",
+        "eslint": "^8.57.0",
+        "typescript": "^5.2.2",
+        "vite": "^5.2.0",
+        "vite-plugin-dts": "^3.9.1"
+    }
+}
