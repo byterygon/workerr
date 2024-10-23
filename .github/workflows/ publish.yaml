@@ -41,7 +41,7 @@ jobs:
       - name: Publish to npm
         if: success()
         env:
-          # NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           npm set //registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}
           npm publish --access=public
