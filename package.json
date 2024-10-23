@@ -1,46 +1,65 @@
 {
-    "name": "@byterygon/workerr",
-    "version": "0.0.0-0",
-    "type": "module",
-    "main": "./dist/main.js",
-    "exports": {
-        "./main": {
-            "import": {
-                "default": "./dist/main.js",
-                "types": "./dist/mainThread/index.d.ts"
-            }
-        },
-        "./worker": {
-            "import": {
-                "default": "./dist/worker.js",
-                "types": "./dist/workerThread/index.d.ts"
-            }
-        },
-        "./utils": {
-            "import": {
-                "default": "./dist/utils.js",
-                "types": "./dist/utils.d.ts"
-            }
-        }
+  "name": "@byterygon/workerr",
+  "version": "0.0.0-0",
+  "description": "Workerr is a lightweight library that simplifies working with Web Workers in JavaScript. It provides a more intuitive way to handle parallel tasks by using Promises, along with a built-in worker pool to efficiently manage worker instances. With strong TypeScript support and easy abort handling, Workerr helps streamline multi-threaded programming for browser-based applications.",
+  "keywords": [
+    "web-worker",
+    "parallel-processing",
+    "worker-pool",
+    "javascript",
+    "typescript",
+    "concurrency"
+  ],
+  "author": "Byterygon",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/byterygon/workerr/issues"
+  },
+  "homepage": "https://www.byterygon.com/workerr",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/byterygon/workerr.git"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "main": "./dist/workerr.cjs",
+  "module": "./dist/workerr.js",
+  "browser": "./dist/workerr.umd.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "default": "./dist/main.js",
+        "types": "./dist/index.d.ts"
+      },
+      "require:": {
+        "default": "./dist/main.cjs",
+        "types": "./dist/index.d.ts"
+      },
+      "browser": "./dist/main.umd.js"
     },
-    "files": [
-        "dist"
-    ],
-    "scripts": {
-        "build": "tsc --p ./tsconfig.build.json && vite build",
-        "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-        "preview": "vite preview"
-    },
-    "dependencies": {
-        "events": "^3.3.0"
-    },
-    "devDependencies": {
-        "@types/node": "^20.14.2",
-        "@typescript-eslint/eslint-plugin": "^7.2.0",
-        "@typescript-eslint/parser": "^7.2.0",
-        "eslint": "^8.57.0",
-        "typescript": "^5.2.2",
-        "vite": "^5.2.0",
-        "vite-plugin-dts": "^3.9.1"
-    }
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc --p ./tsconfig.build.json && vite build",
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "events": "^3.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.2",
+    "@typescript-eslint/eslint-plugin": "^7.2.0",
+    "@typescript-eslint/parser": "^7.2.0",
+    "eslint": "^8.57.0",
+    "typescript": "^5.2.2",
+    "vite": "^5.2.0",
+    "vite-plugin-dts": "^3.9.1"
+  }
 }
