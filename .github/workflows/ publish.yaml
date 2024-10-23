@@ -6,6 +6,11 @@ on:
       - "package.json"
     branches:
       - main
+permissions:
+  contents: write
+  actions: write
+  attestations: write
+
 jobs:
   publish:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
