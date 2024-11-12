@@ -7,11 +7,21 @@ export type Command<IContext extends object, TBody> = (
 ) => unknown | Promise<unknown>;
 
 export type Commands<IContext extends object> = {
-    [cmd: string]: Command<IContext, any>;
+    [cmd in string]: (
+        body: any,
+        context?: { abortSignal?: AbortSignal, context: IContext }
+    ) => any | Promise<any>;
 };
-export function buildCommand<C extends Commands<IContext>, IContext extends Object>(command: C): C {
-    return command;
-};
+// export type CommandArg<TBody extends any = any> = [
+//   body?: TBody,
+//   { signal: AbortSignal}
+// ];
+
+export function buildCommand<C extends Commands<IContext>, IContext extends object>(command: C) {
+    return command as unknown as {
+        [key in keyof C]: (arg: Parameters<C[key]>[0]) => ReturnType<C[key]>;
+    };
+}
 
 // export class CommandBuilder<IContext extends object> {
 //     constructor() { }

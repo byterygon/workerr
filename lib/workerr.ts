@@ -1,6 +1,6 @@
 import { Commands } from "./command";
 import { MainThreadTypePayloadMap, MessageData, WorkerMessageTypePayLoadMap } from "./message"
-import { toError } from "./utils";
+import { toError, uuid } from "./utils";
 declare var self: DedicatedWorkerGlobalScope;
 
 export class Workerr<IContext extends object> {
@@ -41,7 +41,10 @@ export class Workerr<IContext extends object> {
                         const error = toError(err)
                         Workerr.postMessage({
                             messageType: "excecute:error",
-                            messagePayload: error
+                            messagePayload: {
+                                messageId: ev.data.messageId,
+                                error
+                            }
                         })
                     }
                 }
@@ -79,7 +82,13 @@ export class Workerr<IContext extends object> {
 
         return new Workerr<IContext>(commands)
     }
-    private static postMessage<K extends keyof WorkerMessageTypePayLoadMap>(message: Omit<MessageData<WorkerMessageTypePayLoadMap, K>, "messageId" | "timestamp">) {
-        self.postMessage(message)
+    private static postMessage<K extends keyof WorkerMessageTypePayLoadMap>(message: Omit<MessageData<WorkerMessageTypePayLoadMap, K>, "messageId" | "timestamp"> & Partial<Pick<MessageData<WorkerMessageTypePayLoadMap, K>, "messageId" | "timestamp">>) {
+        self.postMessage({
+            ...message,
+            messageId: message.messageId ?? uuid(),
+            timestamp: message.timestamp ?? Date.now(),
+        } as MessageData<WorkerMessageTypePayLoadMap, K>
+        )
+
     }
 }

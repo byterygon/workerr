@@ -17,7 +17,10 @@ export interface WorkerMessageTypePayLoadMap {
         messageId: string;
         result: unknown
     }
-    "excecute:error": Error
+    "excecute:error": {
+        messageId: string;
+        error: Error
+    }
 
 
 }

@@ -89,8 +89,8 @@ export class WorkerrController<C extends Commands<IContext>, IContext extends ob
             throw error
         }
     }
-    public static async create<IContext extends object>(options: WorkerControllerConstructor<IContext>) {
-        const workerrController = new WorkerrController(options)
+    public static async create<CMD extends Commands<IContext>, IContext extends object = object>(options: WorkerControllerConstructor<IContext>) {
+        const workerrController = new WorkerrController<CMD, IContext>(options)
         await workerrController.awaitReady()
         return workerrController
     }
@@ -114,27 +114,42 @@ export class WorkerrController<C extends Commands<IContext>, IContext extends ob
         })
     }
     private exec<K extends keyof C>(cmd: K, params: Parameters<C[K]>[0], options: Parameters<C[K]>[1]) {
-        const messageId = uuid()
-        const listener = (event: MessageEvent<MessageData<WorkerMessageTypePayLoadMap>>) => {
-            if (event.data.messageType === "excecute:response") {
-                const message = MessageEvent<MessageData<WorkerMessageTypePayLoadMap, "excecute:response">>
-                if (message)
+        return new Promise<ReturnType<C[K]>>((resolve, reject) => {
+            const messageId = uuid()
+            const listener = (event: MessageEvent<MessageData<WorkerMessageTypePayLoadMap>>) => {
+                switch (event.data.messageType) {
+                    case "excecute:response":
+                        const message = event.data as MessageData<WorkerMessageTypePayLoadMap, "excecute:response">
+                        if (message.messagePayload.messageId === messageId) {
+                            this.worker.removeEventListener("message", listener)
+                            resolve(message.messagePayload.result as ReturnType<C[K]>)
+                        }
+                        break
+                    case "excecute:error": {
+                        const message = event.data.messagePayload as MessageData<WorkerMessageTypePayLoadMap, "excecute:error">
+                        if (message.messagePayload.messageId === messageId) {
+                            this.worker.removeEventListener("message", listener)
+                            reject(message.messagePayload.error as ReturnType<C[K]>)
+                        }
+                    }
 
+                }
             }
-        }
-        this.worker.addEventListener("message", listener)
+            this.worker.addEventListener("message", listener)
 
-
-        this.postMessage({
-            messageType: "excecute:start",
-            messagePayload: {
-                cmd: cmd as string,
-                params, context: options?.context, abortSignal: options?.abortSignal
-            }
+            //TODO: add messageerror listener
+            this.postMessage({
+                messageType: "excecute:start",
+                messagePayload: {
+                    cmd: cmd as string,
+                    params, context: options?.context, abortSignal: options?.abortSignal
+                },
+                messageId
+            })
         })
     }
-    public async excecuteAsync() {
-
+    public async excecuteAsync<K extends keyof C>(cmd: keyof C, params: Parameters<C[K]>[0], options?: Parameters<C[K]>[1]) {
+        return this.exec(cmd, params, options)
     }
     public stream() {
 
