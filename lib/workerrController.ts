@@ -114,8 +114,13 @@ export class WorkerrController<C extends Commands<IContext>, IContext extends ob
         })
     }
     private exec<K extends keyof C>(cmd: K, params: Parameters<C[K]>[0], options: Parameters<C[K]>[1]) {
+        const messageId = uuid()
         const listener = (event: MessageEvent<MessageData<WorkerMessageTypePayLoadMap>>) => {
+            if (event.data.messageType === "excecute:response") {
+                const message = MessageEvent<MessageData<WorkerMessageTypePayLoadMap, "excecute:response">>
+                if (message)
 
+            }
         }
         this.worker.addEventListener("message", listener)
 
