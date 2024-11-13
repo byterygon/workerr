@@ -24,9 +24,6 @@ jobs:
         with:
           node-version: "20"
           cache: "npm"
-
-      - name: Install dependencies
-        run: npm install
       - name: Check if package version has been bumped
         id: version_check
         run: |
@@ -48,6 +45,7 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
+          npm ci
           npm run build
           npm set //registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}
           npm publish --access=public
