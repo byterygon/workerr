@@ -35,14 +35,12 @@ export interface MainThreadTypePayloadMap {
     "excecute:start": {
         cmd: string;
         params: unknown;
-        context: unknown;
-        abortSignal?: AbortSignal
+        abortSignalChannelPort?: MessagePort
     }
-
     "stream:start": {
         port: MessagePort
         context: unknown
-        abortSignal?: AbortSignal
+        abortSignal: boolean
     }
 }
 export interface MessageData<M extends WorkerMessageTypePayLoadMap | MainThreadTypePayloadMap, Type extends keyof M = keyof M> {
@@ -51,3 +49,11 @@ export interface MessageData<M extends WorkerMessageTypePayLoadMap | MainThreadT
     messagePayload: M[Type];
     timestamp: number
 }
+
+export type MainThreadMessages = {
+    [Type in keyof MainThreadTypePayloadMap]: MessageData<MainThreadTypePayloadMap, Type>;
+}[keyof MainThreadTypePayloadMap];
+
+export type WorkerMessages = {
+    [Type in keyof WorkerMessageTypePayLoadMap]: MessageData<WorkerMessageTypePayLoadMap, Type>;
+}[keyof WorkerMessageTypePayLoadMap];

@@ -1,22 +1,27 @@
 import EventEmitter from "events";
-import { Commands } from "./command";
-import { MainThreadTypePayloadMap, MessageData, WorkerMessageTypePayLoadMap } from "./message"
+import { AsyncRequests } from "./command";
+import { MainThreadMessages, MainThreadTypePayloadMap, MessageData, WorkerMessageTypePayLoadMap } from "./message"
 import { toError, uuid } from "./utils";
 declare var self: DedicatedWorkerGlobalScope;
 
 interface WorkerrEventMap<IContext> {
-    "context:update"
+    "context:update": [IContext]
 }
-export class Workerr<IContext extends object>{
+interface WorkerrConstructor<IContext extends object> {
+    asyncRequest: AsyncRequests<IContext>
+}
+export class Workerr<IContext extends object> {
     public context: IContext
-    private commands
-    private emitter= new EventEmitter()
-    private constructor(commands: Commands<IContext>) {
-        this.commands = commands
+    private asyncRequest: AsyncRequests<IContext>
+    private emitter = new EventEmitter<WorkerrEventMap<IContext>>()
+    private constructor({
+        asyncRequest
+    }: WorkerrConstructor<IContext>) {
+        this.asyncRequest = asyncRequest
         this.context = {} as IContext
 
 
-        const listener = async  <K extends keyof MainThreadTypePayloadMap>(ev: MessageEvent<MessageData<MainThreadTypePayloadMap, K>>) => {
+        const listener = async (ev: MessageEvent<MainThreadMessages>) => {
             switch (ev.data.messageType) {
                 case "context:update":
                     this.context = ev.data.messagePayload as IContext
@@ -26,19 +31,33 @@ export class Workerr<IContext extends object>{
                             messageId: ev.data.messageId
                         }
                     })
+                    this.emitter.emit("context:update", this.context)
                     break
                 case "excecute:start": {
                     const message = ev.data as MessageData<MainThreadTypePayloadMap, "excecute:start">
                     try {
-                        if (message.messagePayload.cmd in this.commands) {
-                            const result = await this.commands[message.messagePayload.cmd](message.messagePayload.params, {
-                                context: {
-                                    ...this.context,
-                                    ...message.messagePayload.context ?? {}
+                        if (message.messagePayload.cmd in this.asyncRequest) {
+                            let abortSignal: AbortSignal | undefined
+                            if (message.messagePayload.abortSignalChannelPort) {
+                                const controller = new AbortController()
+                                abortSignal = controller.signal
+                                message.messagePayload.abortSignalChannelPort.onmessage = (ev) => {
+                                    controller.abort(ev.data)
+                                    message.messagePayload.abortSignalChannelPort?.close()
+                                }
+
+                            }
+                            let transfer: Transferable[] = []
+                            const result = await this.asyncRequest[message.messagePayload.cmd](message.messagePayload.params, {
+                                context:
+                                    this.context,
+                                abortSignal: abortSignal,
+                                transferObject(t) {
+                                    transfer.push(...t)
                                 },
-                                abortSignal: message.messagePayload.abortSignal
                             })
-                            Workerr.postMessage({ messageType: "excecute:response", messagePayload: { messageId: message.messageId, result } })
+                            message.messagePayload.abortSignalChannelPort?.close()
+                            Workerr.postMessage({ messageType: "excecute:response", messagePayload: { messageId: message.messageId, result } }, transfer)
                         } else {
                             throw new Error("Command is not supported")
                         }
@@ -57,7 +76,7 @@ export class Workerr<IContext extends object>{
         }
         self.addEventListener("message", listener)
     }
-    public static async create<IContext extends object>(commands: Commands<IContext>, cb?: () => Promise<unknown>) {
+    public static async create<IContext extends object>(options: WorkerrConstructor<IContext>, cb?: () => Promise<unknown>) {
         this.postMessage({ messageType: "initialization:start", messagePayload: undefined });
         try {
             await cb?.()
@@ -85,15 +104,26 @@ export class Workerr<IContext extends object>{
             this.postMessage({ messageType: "initialization:error", messagePayload: toError(err) })
         }
 
-        return new Workerr<IContext>(commands)
+        return new Workerr<IContext>(options)
     }
-    private static postMessage<K extends keyof WorkerMessageTypePayLoadMap>(message: Omit<MessageData<WorkerMessageTypePayLoadMap, K>, "messageId" | "timestamp"> & Partial<Pick<MessageData<WorkerMessageTypePayLoadMap, K>, "messageId" | "timestamp">>) {
+    private static postMessage<K extends keyof WorkerMessageTypePayLoadMap>(message: Omit<MessageData<WorkerMessageTypePayLoadMap, K>, "messageId" | "timestamp"> & Partial<Pick<MessageData<WorkerMessageTypePayLoadMap, K>, "messageId" | "timestamp">>, transfer?: Transferable[]) {
         self.postMessage({
             ...message,
             messageId: message.messageId ?? uuid(),
             timestamp: message.timestamp ?? Date.now(),
-        } as MessageData<WorkerMessageTypePayLoadMap, K>
+        } as MessageData<WorkerMessageTypePayLoadMap, K>, transfer as Transferable[]
         )
+
+    }
+    public addListener<K extends keyof WorkerrEventMap<IContext>>(eventName: K, listener: K extends "context:update" ? WorkerrEventMap<IContext>[K] extends unknown[] ? (...args: WorkerrEventMap<IContext>[K]) => void : never : never) {
+        this.emitter.addListener(eventName, listener)
+    }
+    public removeListener<K extends keyof WorkerrEventMap<IContext>>(eventName: K, listener: K extends "context:update" ? WorkerrEventMap<IContext>[K] extends unknown[] ? (...args: WorkerrEventMap<IContext>[K]) => void : never : never) {
+
+        this.emitter.removeListener(eventName, listener)
+    }
+    public removeAllListeners(eventName?: unknown) {
+        this.emitter.removeAllListeners(eventName)
 
     }
 }

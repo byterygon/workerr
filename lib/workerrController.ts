@@ -1,7 +1,7 @@
 import PQueue from "p-queue";
-import { MainThreadTypePayloadMap, MessageData, WorkerMessageTypePayLoadMap } from "./message";
+import {  MainThreadTypePayloadMap, MessageData, WorkerMessages } from "./message";
 import { uuid } from "./utils";
-import { Commands } from "./command";
+import { AsyncRequests } from "./command";
 
 
 interface WorkerrControllerConstructorBase<IContext extends object> {
@@ -19,7 +19,7 @@ interface WorkerrControllerConstructorWithFactory {
 }
 export type WorkerControllerConstructor<IContext extends object> = WorkerrControllerConstructorBase<IContext> & (WorkerrControllerConstructorWithUrl | WorkerrControllerConstructorWithFactory)
 
-export class WorkerrController<C extends Commands<IContext>, IContext extends object> {
+export class WorkerrController<IRequests extends AsyncRequests<IContext>, IContext extends object> {
     private worker: Worker
     private taskQueue: PQueue | undefined
     private concurrency: number
@@ -46,7 +46,7 @@ export class WorkerrController<C extends Commands<IContext>, IContext extends ob
             this.context = options.context ?? {} as IContext
             // init queue, if concurrency is infinity -> don't have to use queue
             this.concurrency = options.concurrency || Infinity
-            if (!Number.isFinite(this.concurrency) && this.concurrency >= 1) {
+            if (Number.isFinite(this.concurrency) && this.concurrency >= 1) {
                 this.taskQueue = new PQueue({ concurrency: this.concurrency })
             }
 
@@ -57,7 +57,7 @@ export class WorkerrController<C extends Commands<IContext>, IContext extends ob
                 const timeout = setTimeout(() => {
                     reject(new Error("Cannot initialized worker"))
                 }, 5 * 1000)
-                const initializeListener = (event: MessageEvent<MessageData<WorkerMessageTypePayLoadMap>>) => {
+                const initializeListener = (event: MessageEvent<WorkerMessages>) => {
                     switch (event.data.messageType) {
                         case "initialization:start":
                             clearTimeout(timeout)
@@ -68,13 +68,14 @@ export class WorkerrController<C extends Commands<IContext>, IContext extends ob
                             this.worker.removeEventListener("message", initializeListener)
                             break
                         case "initialization:complete":
-                            resolve(true)
                             this.ready = true
                             this.postMessage({
                                 messageType: "initialization:ack",
                                 messagePayload: undefined
                             })
+                            this.updateContext(() => this.context)
                             this.worker.removeEventListener("message", initializeListener)
+                            resolve(true)
                             break
 
                     }
@@ -88,70 +89,98 @@ export class WorkerrController<C extends Commands<IContext>, IContext extends ob
             throw error
         }
     }
-    public static async create<CMD extends Commands<IContext>, IContext extends object >(options: WorkerControllerConstructor<IContext>) {
-        const workerrController = new WorkerrController<CMD, IContext>(options)
+    public static async create<IRequests extends AsyncRequests<IContext>, IContext extends object = IRequests extends AsyncRequests<infer _IContext> ? _IContext : never>(options: WorkerControllerConstructor<IContext>) {
+        const workerrController = new WorkerrController<IRequests, IContext>(options)
         await workerrController.awaitReady()
         return workerrController
     }
 
 
 
-    private postMessage<K extends keyof MainThreadTypePayloadMap>(message: Omit<MessageData<MainThreadTypePayloadMap, K>, "messageId" | "timestamp"> & Partial<Pick<MessageData<MainThreadTypePayloadMap, K>, "messageId" | "timestamp">>) {
+    private postMessage<K extends keyof MainThreadTypePayloadMap>(message: Omit<MessageData<MainThreadTypePayloadMap, K>, "messageId" | "timestamp"> & Partial<Pick<MessageData<MainThreadTypePayloadMap, K>, "messageId" | "timestamp">>, options?: Transferable[] | StructuredSerializeOptions) {
         this.worker.postMessage({
             ...message,
             messageId: message.messageId ?? uuid(),
             timestamp: message.timestamp ?? Date.now(),
-        } as MessageData<MainThreadTypePayloadMap, K>)
+        } as MessageData<MainThreadTypePayloadMap, K>, options as Transferable[])
     }
     private async awaitReady() {
         await this.readyPromise
     }
-    public async updateContext(context: IContext) {
+    public async updateContext(updater: (context: IContext) => IContext) {
+        this.context = updater(this.context)
         this.postMessage({
             messageType: "context:update",
-            messagePayload: context
+            messagePayload: this.context
         })
     }
-    private exec<K extends keyof C>(cmd: K, params: Parameters<C[K]>[0], options: Parameters<C[K]>[1]) {
-        return new Promise<ReturnType<C[K]>>((resolve, reject) => {
+    private exec<IRequestName extends keyof IRequests>(cmd: IRequestName, params: Parameters<IRequests[IRequestName]>[0], options?: {
+        abortSignal?: AbortSignal,
+        transfer?: Transferable[]
+    }) {
+        return new Promise<ReturnType<IRequests[IRequestName]>>((resolve, reject) => {
             const messageId = uuid()
-            const listener = (event: MessageEvent<MessageData<WorkerMessageTypePayLoadMap>>) => {
-                switch (event.data.messageType) {
-                    case "excecute:response":
-                        const message = event.data as MessageData<WorkerMessageTypePayLoadMap, "excecute:response">
-                        if (message.messagePayload.messageId === messageId) {
+            let abortSignalChannelPort1: MessagePort | undefined
+            let abortSignalChannelPort2: MessagePort | undefined
+            if (options?.abortSignal) {
+                const channel = new MessageChannel()
+                abortSignalChannelPort1 = channel.port1
+                abortSignalChannelPort2 = channel.port2
+
+            }
+            const abortListener = (ev: Event) => {
+                const target = ev.target as AbortSignal
+                abortSignalChannelPort1?.postMessage(target.reason)
+
+            }
+
+            options?.abortSignal?.addEventListener("abort", abortListener, { once: true })
+
+            const listener = (event: MessageEvent<WorkerMessages>) => {
+                let message = event.data
+                if ((message.messageType === "excecute:error" || message.messageType === "excecute:response") && message.messagePayload.messageId === messageId) {
+
+                    switch (message.messageType) {
+                        case "excecute:response":
                             this.worker.removeEventListener("message", listener)
-                            resolve(message.messagePayload.result as ReturnType<C[K]>)
-                        }
-                        break
-                    case "excecute:error": {
-                        const message = event.data.messagePayload as MessageData<WorkerMessageTypePayLoadMap, "excecute:error">
-                        if (message.messagePayload.messageId === messageId) {
+                            resolve(message.messagePayload.result as ReturnType<IRequests[IRequestName]>)
+                            break
+                        case "excecute:error": {
                             this.worker.removeEventListener("message", listener)
-                            reject(message.messagePayload.error as ReturnType<C[K]>)
+                            reject(message.messagePayload.error as ReturnType<IRequests[IRequestName]>)
+                            break
                         }
+
                     }
+                    options?.abortSignal?.removeEventListener("abort", abortListener)
+                    abortSignalChannelPort1?.close()
 
                 }
             }
             this.worker.addEventListener("message", listener)
-
             //TODO: add messageerror listener
             this.postMessage({
                 messageType: "excecute:start",
                 messagePayload: {
                     cmd: cmd as string,
-                    params, context: options?.context, abortSignal: options?.abortSignal
+                    params,
+                    abortSignalChannelPort: abortSignalChannelPort2
                 },
                 messageId
-            })
+            }, { transfer: [...options?.transfer ?? [], ...(abortSignalChannelPort2 ? [abortSignalChannelPort2] : [])] })
         })
     }
-    public async excecuteAsync<K extends keyof C>(cmd: K, params: Parameters<C[K]>[0], options?: Parameters<C[K]>[1]) {
-        return this.exec(cmd, params, {
-            context: this.context,
-            ...options
-        })
+    public async excecuteAsync<IRequestName extends keyof IRequests>(cmd: IRequestName, params: Parameters<IRequests[IRequestName]>[0], options?: {
+        abortSignal?: AbortSignal,
+        transfer?: Transferable[]
+    }) {
+        if (this.taskQueue) {
+            return this.taskQueue.add(({ signal }) => this.exec(cmd, params, {
+                ...options,
+                abortSignal: signal
+            }), { signal: options?.abortSignal })
+        }
+        return this.exec(cmd, params, options)
     }
     public stream() {
 
