@@ -1,6 +1,6 @@
 {
   "name": "@byterygon/workerr",
-  "version": "0.0.0-4",
+  "version": "0.0.0-5",
   "description": "Workerr is a lightweight library that simplifies working with Web Workers in JavaScript. It provides a more intuitive way to handle parallel tasks by using Promises, along with a built-in worker pool to efficiently manage worker instances. With strong TypeScript support and easy abort handling, Workerr helps streamline multi-threaded programming for browser-based applications.",
   "keywords": [
     "web-worker",
