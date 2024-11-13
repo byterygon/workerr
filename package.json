@@ -1,6 +1,6 @@
 {
   "name": "@byterygon/workerr",
-  "version": "0.0.0-3",
+  "version": "0.0.0-4",
   "description": "Workerr is a lightweight library that simplifies working with Web Workers in JavaScript. It provides a more intuitive way to handle parallel tasks by using Promises, along with a built-in worker pool to efficiently manage worker instances. With strong TypeScript support and easy abort handling, Workerr helps streamline multi-threaded programming for browser-based applications.",
   "keywords": [
     "web-worker",
@@ -46,20 +46,25 @@
     "dist"
   ],
   "scripts": {
+    "start": "vite",
     "build": "tsc --p ./tsconfig.build.json && vite build",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "preview": "vite preview"
+    "test": "vitest --silent=false"
   },
   "dependencies": {
-    "events": "^3.3.0"
+    "events": "^3.3.0",
+    "p-queue": "^8.0.1"
   },
   "devDependencies": {
     "@types/node": "^20.14.2",
     "@typescript-eslint/eslint-plugin": "^7.2.0",
     "@typescript-eslint/parser": "^7.2.0",
     "eslint": "^8.57.0",
+    "jsdom-global": "^3.0.2",
+    "jsdom-worker": "^0.3.0",
     "typescript": "^5.2.2",
     "vite": "^5.2.0",
-    "vite-plugin-dts": "^3.9.1"
+    "vite-plugin-dts": "^3.9.1",
+    "vitest": "^2.1.4"
   }
 }

@@ -1,6 +1,8 @@
-import { createCommand, WorkerrPool } from "./mainThread"
-import type { WorkerManagerConstructor } from './mainThread'
+export { CommandBuilder } from "./command"
 
-import { Workerr } from "./workerThread"
+export { Workerr } from "./workerr"
 
-export { createCommand, WorkerrPool, WorkerManagerConstructor, Workerr }
+export { WorkerrController } from "./workerrController"
+
+export type { WorkerControllerConstructor } from "./workerrController"
+
