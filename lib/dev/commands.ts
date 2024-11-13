@@ -1,9 +1,14 @@
-import { buildCommand } from "../command";
+import { CommandBuilder } from "../command";
 
 
-export const commands = buildCommand({
-    sum({ a, b }: { a: number; b: number }) {
-        return a + b
+export interface Context {
+    baseZero: number
+}
+
+const builder = new CommandBuilder<Context>()
+export const commands = builder.buildCommand({
+    sum({ a, b }: { a: number; b: number } , {context}) {
+        return context.baseZero + a + b
     }
 })
 

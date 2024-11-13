@@ -1,10 +1,15 @@
 import { WorkerrController } from "../workerrController";
-import { Commands } from "./commands";
+import { Commands, Context } from "./commands";
 
 
-const workerController = WorkerrController.create<Commands>({
-    'workerType': "instance",
-    worker: () => new Worker(new URL("./worker.ts", import.meta.url), { type: "module" })
-}).then((wc) => {
-    wc.excecuteAsync("sum", { a: 1, b: 1 }).then(console.log)
-})
+const main = async () => {
+    const workerController = await WorkerrController.create<Commands, Context>({
+        'workerType': "instance",
+        worker: () => new Worker(new URL("./worker.ts", import.meta.url), { type: "module" }),
+        context: {baseZero: 1}
+    })
+    const result = await workerController.excecuteAsync("sum", {a: 10, b: 20})
+    console.log(result)
+}
+
+main()

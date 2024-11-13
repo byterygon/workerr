@@ -1,11 +1,16 @@
+import EventEmitter from "events";
 import { Commands } from "./command";
 import { MainThreadTypePayloadMap, MessageData, WorkerMessageTypePayLoadMap } from "./message"
 import { toError, uuid } from "./utils";
 declare var self: DedicatedWorkerGlobalScope;
 
-export class Workerr<IContext extends object> {
+interface WorkerrEventMap<IContext> {
+    "context:update"
+}
+export class Workerr<IContext extends object>{
     public context: IContext
     private commands
+    private emitter= new EventEmitter()
     private constructor(commands: Commands<IContext>) {
         this.commands = commands
         this.context = {} as IContext

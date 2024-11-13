@@ -4,10 +4,9 @@ import { uuid } from "./utils";
 import { Commands } from "./command";
 
 
-
 interface WorkerrControllerConstructorBase<IContext extends object> {
     concurrency?: number
-    context?: IContext
+    context: IContext
 }
 interface WorkerrControllerConstructorWithUrl {
     workerType: 'url';
@@ -89,7 +88,7 @@ export class WorkerrController<C extends Commands<IContext>, IContext extends ob
             throw error
         }
     }
-    public static async create<CMD extends Commands<IContext>, IContext extends object = object>(options: WorkerControllerConstructor<IContext>) {
+    public static async create<CMD extends Commands<IContext>, IContext extends object >(options: WorkerControllerConstructor<IContext>) {
         const workerrController = new WorkerrController<CMD, IContext>(options)
         await workerrController.awaitReady()
         return workerrController
@@ -148,8 +147,11 @@ export class WorkerrController<C extends Commands<IContext>, IContext extends ob
             })
         })
     }
-    public async excecuteAsync<K extends keyof C>(cmd: keyof C, params: Parameters<C[K]>[0], options?: Parameters<C[K]>[1]) {
-        return this.exec(cmd, params, options)
+    public async excecuteAsync<K extends keyof C>(cmd: K, params: Parameters<C[K]>[0], options?: Parameters<C[K]>[1]) {
+        return this.exec(cmd, params, {
+            context: this.context,
+            ...options
+        })
     }
     public stream() {
 
