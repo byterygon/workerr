@@ -1,6 +1,6 @@
 import { expect, test, describe, it, vi, beforeEach } from 'vitest'
 import { WorkerrController } from '../lib/workerrController'
-import { Workerr } from '../lib/workerr'
+import { Workerr } from '../lib/workerrThread'
 
 class WorkerMock implements Worker {
     private port: MessagePort

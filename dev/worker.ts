@@ -1,4 +1,4 @@
-import { Workerr } from "../lib/workerr";
+import { Workerr } from "../lib/workerrThread";
 import { commands } from "./commands";
 
 async function main() {

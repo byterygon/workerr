@@ -6,7 +6,7 @@ export default defineConfig({
     plugins: [dts({ include: ["lib"], })],
     build: {
         lib: {
-            entry: resolve(__dirname, "lib/index.ts"),
+            entry: resolve(__dirname, "lib/workerr.ts"),
             formats: ["es", "umd", "cjs"], name: "@byterygon/workerr"
         },
         copyPublicDir: false,
