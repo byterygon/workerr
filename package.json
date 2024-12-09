@@ -27,16 +27,16 @@
   "main": "./dist/workerr.cjs",
   "module": "./dist/workerr.js",
   "browser": "./dist/workerr.umd.js",
-  "types": "./dist/index.d.ts",
+  "types": "./dist/workerr.d.ts",
   "exports": {
     ".": {
       "import": {
         "default": "./dist/workerr.js",
-        "types": "./dist/index.d.ts"
+        "types": "./dist/workerr.d.ts"
       },
       "require:": {
         "default": "./dist/workerr.cjs",
-        "types": "./dist/index.d.ts"
+        "types": "./dist/workerr.d.ts"
       },
       "browser": "./dist/workerr.umd.js"
     },
@@ -52,6 +52,7 @@
     "test": "vitest --silent=false"
   },
   "dependencies": {
+    "@byterygon/workerr": "^1.0.0-0",
     "events": "^3.3.0",
     "p-queue": "^8.0.1"
   },
