@@ -6,7 +6,7 @@ export interface Context {
 }
 
 const builder = new CommandBuilder<Context>()
-export const commands = builder.buildAsyncRequest({
+export const commands = builder.buildInvokeHandlers({
     sum({ a, b }: { a: number; b: number }, { context }) {
         return context.baseZero + a + b
     },

@@ -1,7 +1,8 @@
 import PQueue from "p-queue";
-import {  MainThreadTypePayloadMap, MessageData, WorkerMessages } from "./message";
+import { MainThreadTypePayloadMap, MessageData, WorkerMessages } from "./message";
 import { uuid } from "./utils";
-import { AsyncRequests } from "./command";
+import { InvokeHandlers } from "./command";
+import EventEmitter from "events";
 
 
 interface WorkerrControllerConstructorBase<IContext extends object> {
@@ -19,15 +20,19 @@ interface WorkerrControllerConstructorWithFactory {
 }
 export type WorkerControllerConstructor<IContext extends object> = WorkerrControllerConstructorBase<IContext> & (WorkerrControllerConstructorWithUrl | WorkerrControllerConstructorWithFactory)
 
-export class WorkerrController<IRequests extends AsyncRequests<IContext>, IContext extends object> {
+interface WorkerrControllerEventMap {
+    "ready": []
+}
+export class WorkerrController<IRequests extends InvokeHandlers<IContext>, IContext extends object> {
     private worker: Worker
     private taskQueue: PQueue | undefined
     private concurrency: number
     private context: IContext
-    // private eventEmitter = new EventEmitter<WorkerrControllerEventMap>()
+    private eventEmitter = new EventEmitter<WorkerrControllerEventMap>()
 
     private readyPromise: Promise<boolean>
     public ready = false
+    private terminated = false
 
     // hide constructor, makesure WorkerrController only init by createWorkerrController
     private constructor(options: WorkerControllerConstructor<IContext>) {
@@ -75,6 +80,7 @@ export class WorkerrController<IRequests extends AsyncRequests<IContext>, IConte
                             })
                             this.updateContext(() => this.context)
                             this.worker.removeEventListener("message", initializeListener)
+                            this.eventEmitter.emit("ready")
                             resolve(true)
                             break
 
@@ -89,9 +95,8 @@ export class WorkerrController<IRequests extends AsyncRequests<IContext>, IConte
             throw error
         }
     }
-    public static async create<IRequests extends AsyncRequests<IContext>, IContext extends object = IRequests extends AsyncRequests<infer _IContext> ? _IContext : never>(options: WorkerControllerConstructor<IContext>) {
+    public static create<IRequests extends InvokeHandlers<IContext>, IContext extends object = IRequests extends InvokeHandlers<infer _IContext> ? _IContext : never>(options: WorkerControllerConstructor<IContext>) {
         const workerrController = new WorkerrController<IRequests, IContext>(options)
-        await workerrController.awaitReady()
         return workerrController
     }
 
@@ -104,17 +109,20 @@ export class WorkerrController<IRequests extends AsyncRequests<IContext>, IConte
             timestamp: message.timestamp ?? Date.now(),
         } as MessageData<MainThreadTypePayloadMap, K>, options as Transferable[])
     }
-    private async awaitReady() {
+    public async awaitReady() {
         await this.readyPromise
     }
     public async updateContext(updater: (context: IContext) => IContext) {
+        if (this.terminated) {
+            throw new Error("Workerr had been terminated")
+        }
         this.context = updater(this.context)
         this.postMessage({
             messageType: "context:update",
             messagePayload: this.context
         })
     }
-    private exec<IRequestName extends keyof IRequests>(cmd: IRequestName, params: Parameters<IRequests[IRequestName]>[0], options?: {
+    private _invoke<IRequestName extends keyof IRequests>(cmd: IRequestName, params: Parameters<IRequests[IRequestName]>[0], options?: {
         abortSignal?: AbortSignal,
         transfer?: Transferable[]
     }) {
@@ -170,19 +178,53 @@ export class WorkerrController<IRequests extends AsyncRequests<IContext>, IConte
             }, { transfer: [...options?.transfer ?? [], ...(abortSignalChannelPort2 ? [abortSignalChannelPort2] : [])] })
         })
     }
-    public async excecuteAsync<IRequestName extends keyof IRequests>(cmd: IRequestName, params: Parameters<IRequests[IRequestName]>[0], options?: {
+    public async invoke<IRequestName extends keyof IRequests>(cmd: IRequestName, params: Parameters<IRequests[IRequestName]>[0], options?: {
         abortSignal?: AbortSignal,
         transfer?: Transferable[]
     }) {
+        if (this.terminated) {
+            throw new Error("Workerr had been terminated")
+        }
         if (this.taskQueue) {
-            return this.taskQueue.add(({ signal }) => this.exec(cmd, params, {
+            return this.taskQueue.add(({ signal }) => this._invoke(cmd, params, {
                 ...options,
                 abortSignal: signal
             }), { signal: options?.abortSignal })
         }
-        return this.exec(cmd, params, options)
+        return this._invoke(cmd, params, options)
     }
-    public stream() {
+    public send() {
+        if (this.terminated) {
+            throw new Error("Workerr had been terminated")
+        }
+    }
+    public streamingRequest() {
+        if (this.terminated) {
+            throw new Error("Workerr had been terminated")
+        }
+    }
 
+    public addListener<Event extends keyof WorkerrControllerEventMap>(eventName: Event, listener: Event extends "ready" ? WorkerrControllerEventMap[Event] extends unknown[] ? (...args: WorkerrControllerEventMap[Event]) => void : never : never) {
+        if (this.terminated) {
+            throw new Error("Workerr had been terminated")
+        }
+        this.eventEmitter.addListener(eventName, listener)
+    }
+
+    public removeListener<Event extends keyof WorkerrControllerEventMap>(eventName: Event, listener: Event extends "ready" ? WorkerrControllerEventMap[Event] extends unknown[] ? (...args: WorkerrControllerEventMap[Event]) => void : never : never) {
+        if (this.terminated) {
+            throw new Error("Workerr had been terminated")
+        }
+        this.eventEmitter.removeListener(eventName, listener)
+    }
+    public removeAllListeners(eventName?: keyof WorkerrControllerEventMap) {
+        if (this.terminated) {
+            throw new Error("Workerr had been terminated")
+        }
+        this.eventEmitter.removeAllListeners(eventName)
+    }
+    public terminate() {
+        this.worker.terminate()
+        this.removeAllListeners()
     }
 }

@@ -20,14 +20,14 @@ const main = async () => {
     // console.log(result)
     const controller = AbortSignal.timeout(1000)
 
-    workerController.excecuteAsync("abort", {}, {
+    workerController.invoke("abort", {}, {
         abortSignal: controller
     }).then(console.log)
-    workerController.excecuteAsync("sum", { a: 1, b: 2 }, {
+    workerController.invoke("sum", { a: 1, b: 2 }, {
     }).then(console.log)
 
     const uInt8Array = new Uint8Array(1024 * 1024 * 8).map((v, i) => i);
-    workerController.excecuteAsync("transferable", { uint8: uInt8Array }, { transfer: [uInt8Array.buffer] }).then(({ uint8 }) => {
+    workerController.invoke("transferable", { uint8: uInt8Array }, { transfer: [uInt8Array.buffer] }).then(({ uint8 }) => {
         console.log(uint8.length)
     })
     console.log(uInt8Array.byteLength);

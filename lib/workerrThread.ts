@@ -1,5 +1,5 @@
 import EventEmitter from "events";
-import { AsyncRequests } from "./command";
+import { InvokeHandlers } from "./command";
 import { MainThreadMessages, MainThreadTypePayloadMap, MessageData, WorkerMessageTypePayLoadMap } from "./message"
 import { toError, uuid } from "./utils";
 declare var self: DedicatedWorkerGlobalScope;
@@ -8,16 +8,16 @@ interface WorkerrEventMap<IContext> {
     "context:update": [IContext]
 }
 interface WorkerrConstructor<IContext extends object> {
-    asyncRequest: AsyncRequests<IContext>
+    invokeHandler: InvokeHandlers<IContext>
 }
 export class Workerr<IContext extends object> {
     public context: IContext
-    private asyncRequest: AsyncRequests<IContext>
+    private invokeHandler: InvokeHandlers<IContext>
     private emitter = new EventEmitter<WorkerrEventMap<IContext>>()
     private constructor({
-        asyncRequest
+        invokeHandler
     }: WorkerrConstructor<IContext>) {
-        this.asyncRequest = asyncRequest
+        this.invokeHandler = invokeHandler
         this.context = {} as IContext
 
 
@@ -36,7 +36,7 @@ export class Workerr<IContext extends object> {
                 case "excecute:start": {
                     const message = ev.data as MessageData<MainThreadTypePayloadMap, "excecute:start">
                     try {
-                        if (message.messagePayload.cmd in this.asyncRequest) {
+                        if (message.messagePayload.cmd in this.invokeHandler) {
                             let abortSignal: AbortSignal | undefined
                             if (message.messagePayload.abortSignalChannelPort) {
                                 const controller = new AbortController()
@@ -48,7 +48,7 @@ export class Workerr<IContext extends object> {
 
                             }
                             let transfer: Transferable[] = []
-                            const result = await this.asyncRequest[message.messagePayload.cmd](message.messagePayload.params, {
+                            const result = await this.invokeHandler[message.messagePayload.cmd](message.messagePayload.params, {
                                 context:
                                     this.context,
                                 abortSignal: abortSignal,
@@ -76,11 +76,13 @@ export class Workerr<IContext extends object> {
         }
         self.addEventListener("message", listener)
     }
-    public static async create<IContext extends object>(options: WorkerrConstructor<IContext>, cb?: () => Promise<unknown>) {
+    public static async create<IContext extends object>(options: {
+        invokeHandler: () => Promise<WorkerrConstructor<IContext>["invokeHandler"]>
+    }) {
         this.postMessage({ messageType: "initialization:start", messagePayload: undefined });
         try {
-            await cb?.()
 
+            const invokeHandler = await options.invokeHandler()
             await new Promise((resolve, reject) => {
 
                 const listener = (ev: MessageEvent<MessageData<MainThreadTypePayloadMap>>) => {
@@ -100,11 +102,14 @@ export class Workerr<IContext extends object> {
                 self.addEventListener("messageerror", errorListener)
                 this.postMessage({ messageType: "initialization:complete", messagePayload: undefined })
             })
+            return new Workerr<IContext>({
+                invokeHandler
+            })
         } catch (err) {
             this.postMessage({ messageType: "initialization:error", messagePayload: toError(err) })
         }
 
-        return new Workerr<IContext>(options)
+
     }
     private static postMessage<K extends keyof WorkerMessageTypePayLoadMap>(message: Omit<MessageData<WorkerMessageTypePayLoadMap, K>, "messageId" | "timestamp"> & Partial<Pick<MessageData<WorkerMessageTypePayLoadMap, K>, "messageId" | "timestamp">>, transfer?: Transferable[]) {
         self.postMessage({

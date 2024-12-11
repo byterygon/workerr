@@ -1,5 +1,5 @@
 
-export type AsyncRequests<IContext extends object> = {
+export type InvokeHandlers<IContext extends object> = {
     [cmd in string]: (
         body: any,
         options: { abortSignal?: AbortSignal, context: IContext, transferObject: (transfer: Transferable[]) => void }
@@ -19,7 +19,7 @@ export type AsyncRequests<IContext extends object> = {
 
 export class CommandBuilder<IContext extends object> {
     constructor() { }
-    buildAsyncRequest<C extends AsyncRequests<IContext>>(command: C): C {
+    buildInvokeHandlers<C extends InvokeHandlers<IContext>>(command: C): C {
         return command;
     };
 }
