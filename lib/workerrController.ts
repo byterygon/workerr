@@ -5,6 +5,7 @@ import { InvokeHandlers } from "./command";
 import EventEmitter from "events";
 
 
+
 interface WorkerrControllerConstructorBase<IContext extends object> {
     concurrency?: number
     context: IContext
@@ -22,6 +23,7 @@ export type WorkerControllerConstructor<IContext extends object> = WorkerrContro
 
 interface WorkerrControllerEventMap {
     "ready": []
+    "error": [Error]
 }
 export class WorkerrController<IRequests extends InvokeHandlers<IContext>, IContext extends object> {
     private worker: Worker
@@ -69,7 +71,8 @@ export class WorkerrController<IRequests extends InvokeHandlers<IContext>, ICont
                             break
 
                         case "initialization:error":
-                            reject(Error)
+                            this.eventEmitter.emit("error", event.data.messagePayload)
+                            reject(event.data.messagePayload)
                             this.worker.removeEventListener("message", initializeListener)
                             break
                         case "initialization:complete":
@@ -126,7 +129,8 @@ export class WorkerrController<IRequests extends InvokeHandlers<IContext>, ICont
         abortSignal?: AbortSignal,
         transfer?: Transferable[]
     }) {
-        return new Promise<ReturnType<IRequests[IRequestName]>>((resolve, reject) => {
+        return new Promise<ReturnType<IRequests[IRequestName]>>(async (resolve, reject) => {
+            await this.awaitReady
             const messageId = uuid()
             let abortSignalChannelPort1: MessagePort | undefined
             let abortSignalChannelPort2: MessagePort | undefined
@@ -204,18 +208,25 @@ export class WorkerrController<IRequests extends InvokeHandlers<IContext>, ICont
         }
     }
 
-    public addListener<Event extends keyof WorkerrControllerEventMap>(eventName: Event, listener: Event extends "ready" ? WorkerrControllerEventMap[Event] extends unknown[] ? (...args: WorkerrControllerEventMap[Event]) => void : never : never) {
+    public addListener<K extends keyof WorkerrControllerEventMap>(
+        eventName: K,
+        listener: (...aras: WorkerrControllerEventMap[K]) => void
+    ) {
+
         if (this.terminated) {
             throw new Error("Workerr had been terminated")
         }
-        this.eventEmitter.addListener(eventName, listener)
+        this.eventEmitter.addListener(eventName, listener as Parameters<EventEmitter<WorkerrControllerEventMap>["addListener"]>[1])
     }
 
-    public removeListener<Event extends keyof WorkerrControllerEventMap>(eventName: Event, listener: Event extends "ready" ? WorkerrControllerEventMap[Event] extends unknown[] ? (...args: WorkerrControllerEventMap[Event]) => void : never : never) {
+    public removeListener<K extends keyof WorkerrControllerEventMap>(
+        eventName: K,
+        listener: (...aras: WorkerrControllerEventMap[K]) => void
+    ) {
         if (this.terminated) {
             throw new Error("Workerr had been terminated")
         }
-        this.eventEmitter.removeListener(eventName, listener)
+        this.eventEmitter.removeListener(eventName, listener as Parameters<EventEmitter<WorkerrControllerEventMap>["addListener"]>[1])
     }
     public removeAllListeners(eventName?: keyof WorkerrControllerEventMap) {
         if (this.terminated) {
