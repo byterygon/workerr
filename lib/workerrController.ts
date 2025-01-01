@@ -10,16 +10,12 @@ interface WorkerrControllerConstructorBase<IContext extends object> {
     concurrency?: number
     context: IContext
 }
-interface WorkerrControllerConstructorWithUrl {
-    workerType: 'url';
-    worker: string;
-    workerOptions?: WorkerOptions;
-}
+
 interface WorkerrControllerConstructorWithFactory {
     workerType: 'instance';
     worker: (() => Worker)
 }
-export type WorkerControllerConstructor<IContext extends object> = WorkerrControllerConstructorBase<IContext> & (WorkerrControllerConstructorWithUrl | WorkerrControllerConstructorWithFactory)
+export type WorkerControllerConstructor<IContext extends object> = WorkerrControllerConstructorBase<IContext> & (WorkerrControllerConstructorWithFactory)
 
 interface WorkerrControllerEventMap {
     "ready": []
@@ -41,15 +37,9 @@ export class WorkerrController<IRequests extends InvokeHandlers<IContext>, ICont
         // eslint-disable-next-line no-useless-catch
         try {
             // init worker
-            if (typeof options.worker === 'string') {
-                let _workerOptions: WorkerOptions | undefined
-                if ("workerOptions" in options) {
-                    _workerOptions = options.workerOptions
-                }
-                this.worker = new Worker(options.worker, _workerOptions);
-            } else {
-                this.worker = options.worker()
-            }
+            this.worker = options.worker()
+
+
             this.context = options.context ?? {} as IContext
             // init queue, if concurrency is infinity -> don't have to use queue
             this.concurrency = options.concurrency || Infinity
@@ -193,20 +183,20 @@ export class WorkerrController<IRequests extends InvokeHandlers<IContext>, ICont
             return this.taskQueue.add(({ signal }) => this._invoke(cmd, params, {
                 ...options,
                 abortSignal: signal
-            }), { signal: options?.abortSignal })
+            }), { signal: options?.abortSignal }) as ReturnType<IRequests[IRequestName]>
         }
         return this._invoke(cmd, params, options)
     }
-    public send() {
-        if (this.terminated) {
-            throw new Error("Workerr had been terminated")
-        }
-    }
-    public streamingRequest() {
-        if (this.terminated) {
-            throw new Error("Workerr had been terminated")
-        }
-    }
+    // public send() {
+    //     if (this.terminated) {
+    //         throw new Error("Workerr had been terminated")
+    //     }
+    // }
+    // public streamingRequest() {
+    //     if (this.terminated) {
+    //         throw new Error("Workerr had been terminated")
+    //     }
+    // }
 
     public addListener<K extends keyof WorkerrControllerEventMap>(
         eventName: K,

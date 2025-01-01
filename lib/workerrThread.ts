@@ -76,13 +76,11 @@ export class Workerr<IContext extends object> {
         }
         self.addEventListener("message", listener)
     }
-    public static async create<IContext extends object>(options: {
-        invokeHandler: () => Promise<WorkerrConstructor<IContext>["invokeHandler"]>
-    }) {
+    public static async create<IContext extends object>(cb: () => Promise<WorkerrConstructor<IContext>>) {
         this.postMessage({ messageType: "initialization:start", messagePayload: undefined });
         try {
 
-            const invokeHandler = await options.invokeHandler()
+            const { invokeHandler } = await cb()
             await new Promise((resolve, reject) => {
 
                 const listener = (ev: MessageEvent<MessageData<MainThreadTypePayloadMap>>) => {
